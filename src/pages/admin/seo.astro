@@ -1,0 +1,69 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import AiButton from '../../components/admin/AiButton.astro';
+import { getSettings, saveSettings, SEO_PAGES, type SeoPage } from '../../lib/db';
+import { ui } from '../../lib/i18n';
+import { aiConfigured } from '../../lib/ai';
+
+let s = await getSettings();
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const text = (k: string, max: number) => String(form.get(k) ?? '').trim().slice(0, max);
+  const seo = { ...s.seo };
+  for (const page of SEO_PAGES) seo[page] = { title: text(`${page}_title`, 70), description: text(`${page}_description`, 170) };
+  await saveSettings({ ...s, seo, noindex: !!form.get('noindex') });
+  return Astro.redirect('/admin/seo?ok=1');
+}
+
+// what each page is, in words the AI and Max both understand, plus the text used when a field is empty
+const pages: Record<SeoPage, { label: string; path: string; about: string; title: string; description: string }> = {
+  home: { label: 'Prima pagina', path: '', about: 'la prima pagina del sito: chi è Max, i gusti in vetrina, le torte gelato, stagione di apertura', title: ui.it.home.title, description: ui.it.home.desc },
+  menu: { label: 'Vetrina', path: '/menu', about: 'la pagina del menu: gelati, sorbetti, torte gelato su ordinazione, idee di Max, con allergeni', title: ui.it.menu.title, description: ui.it.menu.desc },
+  contact: { label: 'Contatti', path: '/contatti', about: 'la pagina contatti: indirizzo in Piazzale Merizzi 1 a Sondrio, telefono, WhatsApp, orari e stagione', title: ui.it.contact.title, description: ui.it.contact.desc },
+  diary: { label: 'Diario', path: '/diario', about: 'il diario di Max: foto e appunti su gusti nuovi, torte ed esperimenti', title: ui.it.diary.title, description: ui.it.diary.desc },
+};
+---
+<Admin title="Google" tab="seo">
+  <h1>Google</h1>
+  <p class="a-help">Il titolo e la descrizione che Google mostra per ogni pagina. Se lasci vuoto, il sito usa il testo che vedi in grigio.</p>
+  {Astro.url.searchParams.get('ok') && <p class="a-msg a-msg--ok" role="status">Salvato. Google aggiorna i risultati nel giro di qualche giorno.</p>}
+  {!aiConfigured() && <p class="a-msg a-msg--bad">Il tasto “Genera con AI” non è ancora attivo: manca la chiave del servizio AI. Gli altri campi funzionano.</p>}
+
+  <form method="post">
+    {SEO_PAGES.map((page) => (
+      <>
+        <h2>{pages[page].label}</h2>
+        <div class="a-card">
+          <div class="a-field">
+            <div class="a-label">
+              <label for={`${page}_title`}>Meta title <span class="a-count" data-count-for={`${page}_title`} data-max="60"></span></label>
+              <AiButton kind="seo_title" target={`#${page}_title`} page={pages[page].about} />
+            </div>
+            <input id={`${page}_title`} name={`${page}_title`} type="text" value={s.seo[page].title} maxlength="70" placeholder={pages[page].title} />
+          </div>
+          <div class="a-field">
+            <div class="a-label">
+              <label for={`${page}_description`}>Meta description <span class="a-count" data-count-for={`${page}_description`} data-max="155"></span></label>
+              <AiButton kind="seo_description" target={`#${page}_description`} page={pages[page].about} />
+            </div>
+            <textarea id={`${page}_description`} name={`${page}_description`} maxlength="170" style="min-height:96px" placeholder={pages[page].description}>{s.seo[page].description}</textarea>
+          </div>
+          <div class="a-serp" aria-label="Anteprima su Google">
+            <p class="a-serp__url">{Astro.url.host}{pages[page].path}</p>
+            <p class="a-serp__title" data-mirror={`${page}_title`} data-fallback={pages[page].title}></p>
+            <p class="a-serp__desc" data-mirror={`${page}_description`} data-fallback={pages[page].description}></p>
+          </div>
+        </div>
+      </>
+    ))}
+
+    <h2>Visibilità</h2>
+    <div class="a-card">
+      <label class="a-toggle">Nascondi il sito a Google <input type="checkbox" name="noindex" checked={s.noindex} /></label>
+      <p class="a-help">Da tenere acceso solo finché il sito non è pronto. Quando è acceso, Google non mostra nessuna pagina.</p>
+    </div>
+    <p class="a-help" style="margin-top:16px">I post del diario hanno i loro campi dentro ogni post, sotto “Come appare su Google”.</p>
+    <div class="a-save"><div><button class="a-btn a-btn--wide" type="submit">Salva</button></div></div>
+  </form>
+</Admin>

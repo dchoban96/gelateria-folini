@@ -1,0 +1,26 @@
+---
+import Base from '../../layouts/Base.astro';
+import Arrow from '../../components/Arrow.astro';
+import { getPostBySlug } from '../../lib/db';
+import { fmtDate } from '../../lib/i18n';
+
+const post = await getPostBySlug(Astro.params.slug ?? '');
+if (!post) return new Response(null, { status: 404 });
+const paragraphs = post.body.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+const desc = (paragraphs[0] ?? post.title).slice(0, 155);
+---
+<Base title={post.seo_title || `${post.title}. Il diario di Max`} description={post.seo_description || desc} page="diary" image={post.image || undefined}>
+  <article class="article">
+    {post.image
+      ? <div class="tile article__img shutter"><img src={post.image} alt="" width="900" height="1125" /></div>
+      : <div />}
+    <div>
+      <h1 class="head" data-reveal>{post.title}</h1>
+      <p class="small muted" data-reveal style="--i:1">{fmtDate(post.published_at, 'it')} · Max</p>
+      <div class="prose" data-reveal style="--i:2">
+        {paragraphs.map((par) => <p>{par.split('\n').map((line, i) => <>{i > 0 && <br />}{line}</>)}</p>)}
+      </div>
+      <p style="margin-top:40px;--i:3" data-reveal><a class="btn btn--ink" href="/diario">Tutto il diario <Arrow /></a></p>
+    </div>
+  </article>
+</Base>

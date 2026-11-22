@@ -1,0 +1,142 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import AiButton from '../../../components/admin/AiButton.astro';
+import Photo from '../../../components/admin/Photo.astro';
+import { getFlavor, saveFlavor, deleteFlavor, CATEGORIES, type Flavor } from '../../../lib/db';
+import { saveImage, removeImage } from '../../../lib/media';
+import { ALLERGENS } from '../../../lib/allergens';
+import { ui } from '../../../lib/i18n';
+
+const isNew = Astro.params.id === 'nuovo';
+const existing = isNew ? null : await getFlavor(Number(Astro.params.id));
+if (!isNew && !existing) return Astro.redirect('/admin/menu');
+
+const blank = { name: '', description: '', description_en: '', category: 'gelato', image: '', color: '#f0b866', tags: '', allergens: '', price: '', today: 1, visible: 1 };
+let f = { ...blank, ...(existing ?? {}) } as Omit<Flavor, 'id' | 'sort'> & { id?: number };
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (form.get('action') === 'delete' && existing) {
+    await deleteFlavor(existing.id);
+    await removeImage(existing.image);
+    return Astro.redirect('/admin/menu?ok=deleted');
+  }
+  const text = (k: string, max: number) => String(form.get(k) ?? '').trim().slice(0, max);
+  const category = text('category', 20);
+  const color = text('color', 7);
+  // allergens are only the ticked symbols
+  const ticked = ALLERGENS.filter((a) => form.getAll('allergen').includes(a.key)).map((a) => a.it);
+  f = {
+    ...f,
+    name: text('name', 80),
+    description: text('description', 600),
+    description_en: text('description_en', 600),
+    category: (CATEGORIES as readonly string[]).includes(category) ? (category as Flavor['category']) : 'gelato',
+    color: /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#f0b866',
+    tags: text('tags', 120).toLowerCase(),
+    allergens: ticked.join(', '),
+    price: text('price', 60),
+    today: form.get('today') ? 1 : 0,
+    visible: form.get('visible') ? 1 : 0,
+  };
+  if (!f.name) error = 'Manca il nome. Scrivilo e salva di nuovo.';
+  if (!error) {
+    const up = await saveImage(form.get('photo'));
+    if (up.error) error = up.error;
+    else {
+      const old = existing?.image ?? '';
+      if (up.path) f.image = up.path;
+      else if (form.get('remove_photo')) f.image = '';
+      await saveFlavor(f);
+      if (old && old !== f.image) await removeImage(old);
+      return Astro.redirect('/admin/menu?ok=saved');
+    }
+  }
+}
+
+const parts = f.allergens.split(',').map((s) => s.trim()).filter(Boolean);
+const tickedKeys = ALLERGENS.filter((a) => parts.some((p) => a.match.test(p))).map((a) => a.key);
+const hasExtras = !!(f.description_en || f.tags || f.price);
+---
+<Admin title={isNew ? 'Nuovo' : f.name} tab="menu">
+  <a class="a-back" href="/admin/menu">← Menu</a>
+  <h1>{isNew ? 'Nuovo nel menu' : existing?.name}</h1>
+  {error && <p class="a-msg a-msg--bad" role="alert">{error}</p>}
+
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="action" value="save" />
+    <div class="a-card">
+      <Photo image={f.image} removable />
+      <div class="a-field">
+        <label class="a-label" for="name">Nome</label>
+        <input id="name" name="name" type="text" value={f.name} required maxlength="80" />
+      </div>
+      <fieldset class="a-field">
+        <legend class="a-label">Tipo</legend>
+        <div class="a-chips">
+          {CATEGORIES.map((c) => <label class="a-chip"><input type="radio" name="category" value={c} checked={f.category === c} />{ui.it.cats[c]}</label>)}
+        </div>
+      </fieldset>
+      <div class="a-field">
+        <div class="a-label"><label for="description">Descrizione</label><AiButton kind="flavor" target="#description" title="#name" text="#description" /></div>
+        <textarea id="description" name="description" maxlength="600" placeholder="Che sapore ha, cosa c’è dentro. Oppure due appunti, e li sistema l’AI.">{f.description}</textarea>
+      </div>
+    </div>
+
+    <div class="a-card">
+      <fieldset class="a-field">
+        <legend class="a-label">Allergeni</legend>
+        <div class="a-chips">
+          {ALLERGENS.map((a) => (
+            <label class="a-chip">
+              <input type="checkbox" name="allergen" value={a.key} checked={tickedKeys.includes(a.key)} />
+              <i style={`--c:${a.color}`}><svg viewBox="0 0 24 24" aria-hidden="true" fill="#fff" set:html={a.svg} /></i>
+              {a.it}
+            </label>
+          ))}
+        </div>
+        <small>Sul sito diventano le icone sotto il gusto.</small>
+      </fieldset>
+    </div>
+
+    <div class="a-card">
+      <label class="a-toggle">Mostra sul sito <input type="checkbox" name="visible" checked={!!f.visible} /></label>
+      <label class="a-toggle">In vetrina oggi <input type="checkbox" name="today" checked={!!f.today} /></label>
+    </div>
+
+    <details class="a-more" open={hasExtras}>
+      <summary>Altre opzioni <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+      <div>
+        <div class="a-field">
+          <div class="a-label"><label for="description_en">Descrizione in inglese</label><AiButton kind="flavor_en" target="#description_en" title="#name" text="#description" label="Traduci con AI" /></div>
+          <textarea id="description_en" name="description_en" maxlength="600">{f.description_en}</textarea>
+          <small>Se resta vuota, il sito inglese mostra quella italiana.</small>
+        </div>
+        <div class="a-field">
+          <label class="a-label" for="price">Prezzo o nota</label>
+          <input id="price" name="price" type="text" value={f.price} maxlength="60" placeholder="su ordinazione" />
+        </div>
+        <div class="a-field">
+          <label class="a-label" for="tags">Etichette</label>
+          <input id="tags" name="tags" type="text" value={f.tags} maxlength="120" placeholder="vegano, senza lattosio" />
+          <small>Separate da una virgola. Sul sito diventano i filtri della vetrina.</small>
+        </div>
+        <div class="a-field">
+          <label class="a-label" for="color">Colore della pallina</label>
+          <input id="color" name="color" type="color" value={f.color} />
+          <small>Si vede quando il gusto non ha una foto.</small>
+        </div>
+      </div>
+    </details>
+    <div class="a-save"><div><button class="a-btn a-btn--wide" type="submit">{isNew ? 'Aggiungi al menu' : 'Salva'}</button></div></div>
+  </form>
+
+  {existing && (
+    <form class="a-danger" method="post" data-confirm={`Eliminare “${existing.name}” dal menu? Non si può annullare.`}>
+      <input type="hidden" name="action" value="delete" />
+      <button class="a-btn a-btn--bad" type="submit">Elimina dal menu</button>
+      <p class="a-help">Per toglierlo solo per un periodo, spegni “Mostra sul sito”.</p>
+    </form>
+  )}
+</Admin>

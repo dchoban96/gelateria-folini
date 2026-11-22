@@ -1,0 +1,12 @@
+{
+  "name": "gelateria-folini",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // Before the first deploy: `wrangler d1 create folini` and paste the id below,
+  // `wrangler r2 bucket create folini-media`, then `wrangler secret put ADMIN_PASSWORD`
+  // and `wrangler secret put SESSION_SECRET`.
+  "d1_databases": [
+    { "binding": "DB", "database_name": "folini", "database_id": "f72ba95c-4e77-4d5b-92c4-938b5a7a6906" }
+  ],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "folini-media" }]
+}

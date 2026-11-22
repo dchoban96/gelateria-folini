@@ -1,0 +1,9 @@
+---
+// "Genera con AI" button. `target` is the field it fills; `title` / `text` are the fields it reads for context.
+interface Props { kind: 'flavor' | 'flavor_en' | 'post' | 'seo_title' | 'seo_description'; target: string; title?: string; text?: string; page?: string; label?: string }
+const { kind, target, title, text, page, label = 'Genera con AI' } = Astro.props;
+---
+<button class="a-ai" type="button" data-ai={kind} data-target={target} data-title={title} data-text={text} data-page={page}>
+  <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 2l1.800 5.400a3 3 0 0 0 1.900 1.900L21 11l-5.300 1.700a3 3 0 0 0-1.900 1.900L12 20l-1.800-5.400a3 3 0 0 0-1.900-1.900L3 11l5.300-1.700a3 3 0 0 0 1.900-1.900z"/></svg>
+  <span>{label}</span>
+</button>

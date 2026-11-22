@@ -1,0 +1,105 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import AiButton from '../../components/admin/AiButton.astro';
+import Photo from '../../components/admin/Photo.astro';
+import { listFlavors, getSettings, saveSettings, setToday, saveFlavor } from '../../lib/db';
+import { saveImage } from '../../lib/media';
+import { getStatus } from '../../lib/season';
+import { statusText } from '../../lib/i18n';
+
+let addError = '';
+let draft = { name: '', description: '' };
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = form.get('action');
+  if (action === 'today') {
+    await setToday(form.getAll('today').map(Number).filter(Number.isInteger));
+    return Astro.redirect('/admin?ok=today');
+  }
+  if (action === 'closed') {
+    const s = await getSettings();
+    const today = getStatus(s).today;
+    await saveSettings({ ...s, closedDate: s.closedDate === today ? '' : today });
+    return Astro.redirect('/admin?ok=closed');
+  }
+  if (action === 'add') {
+    // Quick add: photo, title, description. Everything else can be refined later under Menu.
+    draft = { name: String(form.get('name') ?? '').trim().slice(0, 80), description: String(form.get('description') ?? '').trim().slice(0, 600) };
+    if (!draft.name) addError = 'Manca il titolo del gusto. Scrivilo e aggiungi di nuovo.';
+    else {
+      const up = await saveImage(form.get('photo'));
+      if (up.error) addError = up.error;
+      else {
+        await saveFlavor({ ...draft, description_en: '', category: 'gelato', image: up.path ?? '', color: '#f0b866', tags: '', allergens: '', price: '', today: 1, visible: 1 });
+        return Astro.redirect('/admin?ok=added');
+      }
+    }
+  }
+}
+
+const settings = await getSettings();
+const status = getStatus(settings);
+const st = statusText(status, 'it');
+const flavors = (await listFlavors({ all: true })).filter((f) => f.category === 'gelato' || f.category === 'sorbetto');
+const closedToday = settings.closedDate === status.today;
+const ok = Astro.url.searchParams.get('ok');
+---
+<Admin title="Oggi" tab="oggi">
+  <h1>Oggi</h1>
+  {ok === 'today' && <p class="a-msg a-msg--ok" role="status">Vetrina aggiornata. Il sito mostra già i gusti di oggi.</p>}
+  {ok === 'closed' && <p class="a-msg a-msg--ok" role="status">{closedToday ? 'Fatto: oggi il sito dice che siete chiusi.' : 'Fatto: il sito segue di nuovo gli orari normali.'}</p>}
+  {ok === 'added' && <p class="a-msg a-msg--ok" role="status">Gusto aggiunto: è già sul sito e in vetrina. Allergeni e tipo si completano in <a href="/admin/menu">Menu</a>.</p>}
+
+  <div class="a-card a-status">
+    <div>
+      <b>{st.title}</b>
+      <p class="a-help" style="margin:0">{st.line}</p>
+    </div>
+    {status.inSeason
+      ? (
+        <form method="post">
+          <input type="hidden" name="action" value="closed" />
+          <button class={`a-btn ${closedToday ? '' : 'a-btn--quiet'}`} type="submit">{closedToday ? 'Riapri oggi' : 'Oggi restiamo chiusi'}</button>
+        </form>
+      )
+      : <a class="a-btn a-btn--quiet" href="/admin/orari">Cambia le date</a>}
+  </div>
+
+  <h2>In vetrina oggi</h2>
+  <p class="a-help">Accendi i gusti che hai al banco adesso.</p>
+
+  <details class="a-add" open={!!addError}>
+    <summary class="a-btn a-btn--ink a-btn--wide">Aggiungi gusto <span aria-hidden="true">+</span></summary>
+    <form class="a-card" method="post" enctype="multipart/form-data">
+      <input type="hidden" name="action" value="add" />
+      {addError && <p class="a-msg a-msg--bad" role="alert" style="margin:0 0 16px">{addError}</p>}
+      <Photo />
+      <div class="a-field">
+        <label class="a-label" for="add-name">Titolo</label>
+        <input id="add-name" name="name" type="text" value={draft.name} required maxlength="80" placeholder="Mango" />
+      </div>
+      <div class="a-field">
+        <div class="a-label"><label for="add-description">Descrizione</label><AiButton kind="flavor" target="#add-description" title="#add-name" text="#add-description" /></div>
+        <textarea id="add-description" name="description" maxlength="600" placeholder="Che sapore ha, cosa c’è dentro. Oppure due appunti, e li sistema l’AI.">{draft.description}</textarea>
+      </div>
+      <p style="margin-top:18px"><button class="a-btn a-btn--wide" type="submit">Aggiungi alla vetrina</button></p>
+    </form>
+  </details>
+
+  {flavors.length === 0
+    ? <p class="a-empty">Non ci sono ancora gusti. Aggiungi il primo con il pulsante qui sopra.</p>
+    : (
+      <form method="post">
+        <input type="hidden" name="action" value="today" />
+        {flavors.map((f) => (
+          <label class="a-switch">
+            <i style={`--c:${f.color}`}></i>
+            <span>{f.name}{!f.visible && <small style="color:var(--muted)"> · nascosto dal sito</small>}</span>
+            <input type="checkbox" name="today" value={f.id} checked={!!f.today} />
+          </label>
+        ))}
+        <div class="a-save"><div><button class="a-btn a-btn--wide" type="submit">Salva la vetrina di oggi</button></div></div>
+      </form>
+    )}
+</Admin>

@@ -1,0 +1,105 @@
+---
+import '../styles/global.css';
+import Arrow from '../components/Arrow.astro';
+import { getSettings } from '../lib/db';
+import { getStatus } from '../lib/season';
+import { ui, paths, statusText, type Lang } from '../lib/i18n';
+import { SITE, whatsapp } from '../lib/site';
+
+interface Props { title: string; description: string; lang?: Lang; page?: 'home' | 'menu' | 'diary' | 'contact' | 'privacy'; image?: string }
+const { title, description, lang = 'it', page, image = '/img/dragon-fruit.webp' } = Astro.props;
+const t = ui[lang];
+const p = paths[lang];
+const other: Lang = lang === 'it' ? 'en' : 'it';
+const otherHref = page && page !== 'diary' && page !== 'privacy' ? paths[other][page] : paths[other].home;
+const settings = await getSettings();
+const status = getStatus(settings);
+const st = statusText(status, lang);
+const canonical = new URL(Astro.url.pathname, Astro.url.origin).href;
+const ld = {
+  '@context': 'https://schema.org',
+  '@type': 'IceCreamShop',
+  name: SITE.name,
+  telephone: '+393756539154',
+  address: { '@type': 'PostalAddress', streetAddress: SITE.street, postalCode: '23100', addressLocality: 'Sondrio', addressRegion: 'SO', addressCountry: 'IT' },
+  sameAs: [SITE.instagram],
+};
+---
+<!doctype html>
+<html lang={lang} data-season={status.state === 'winter' ? 'winter' : 'open'}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {settings.noindex && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="canonical" href={canonical} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content={new URL(image, Astro.url.origin).href} />
+    <meta name="theme-color" content="#d4127a" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="/fonts/pilcrow-700.woff2" as="font" type="font/woff2" crossorigin />
+    <script is:inline>document.documentElement.classList.add('js');</script>
+    <script type="application/ld+json" set:html={JSON.stringify(ld)} />
+  </head>
+  <body>
+    <a class="skip" href="#main">{t.skip}</a>
+    <header class="bar">
+      <a class="wordmark" href={p.home}>{SITE.name}</a>
+      <p class="state small" data-open={status.state === 'open' ? 'true' : 'false'}>{st.short}</p>
+      <nav class="nav" aria-label={lang === 'it' ? 'Principale' : 'Main'}>
+        <a href={p.menu} aria-current={page === 'menu' ? 'page' : undefined}>{t.nav.menu}</a>
+        <a href={p.diary} aria-current={page === 'diary' ? 'page' : undefined}>{t.nav.diary}</a>
+        <a href={p.contact} aria-current={page === 'contact' ? 'page' : undefined}>{t.nav.contact}</a>
+        <a class="lang" href={otherHref} hreflang={other} aria-label={t.otherLabel}>{t.other}</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <slot />
+    </main>
+
+    <footer>
+      <div class="foot">
+        <div class="foot__tile foot__mark" aria-hidden="true"><span>Gelateria<br />Folini</span></div>
+        <a class="foot__tile foot__cta" href={whatsapp(t.waCake('una torta'))} rel="noopener">
+          <p>{t.foot.cta}</p>
+          <Arrow up />
+        </a>
+      </div>
+      <p class="foot__legal small">
+        <span>© {new Date().getFullYear()} {SITE.name} · {SITE.vat}</span>
+        <span><a href={p.privacy}>{t.foot.privacy}</a> · <a href="/admin">{t.foot.admin}</a></span>
+      </p>
+    </footer>
+
+    <script>
+      // Entrances: each part of a section rises once, staggered. Content stays visible if this never runs.
+      const els = document.querySelectorAll<HTMLElement>('[data-reveal], .shutter');
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const e of entries) {
+              if (!e.isIntersecting) continue;
+              e.target.classList.add('in');
+              io.unobserve(e.target);
+            }
+          },
+          { rootMargin: '0px 0px -8% 0px' },
+        );
+        els.forEach((el) => io.observe(el));
+        // Safety net: if the observer never fires (background tab, odd browser), show everything anyway.
+        const showAll = () => {
+          const broken = !document.querySelector('.in');
+          els.forEach((el) => { if (broken || el.getBoundingClientRect().top < innerHeight) el.classList.add('in'); });
+        };
+        setTimeout(showAll, 1500);
+        document.addEventListener('visibilitychange', showAll);
+      } else {
+        els.forEach((el) => el.classList.add('in'));
+      }
+    </script>
+  </body>
+</html>

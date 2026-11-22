@@ -1,0 +1,4 @@
+# Copia in .dev.vars per lo sviluppo locale. In produzione: wrangler secret put
+ADMIN_PASSWORD=scegli-una-password-lunga
+SESSION_SECRET=stringa-casuale-di-64-caratteri
+ANTHROPIC_API_KEY=sk-ant-...   # optional: enables "Genera con AI" in the admin

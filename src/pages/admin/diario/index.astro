@@ -1,0 +1,33 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { listPosts } from '../../../lib/db';
+import { fmtDate } from '../../../lib/i18n';
+
+const posts = await listPosts();
+const ok = Astro.url.searchParams.get('ok');
+---
+<Admin title="Diario" tab="diario">
+  <h1>Diario</h1>
+  {ok === 'saved' && <p class="a-msg a-msg--ok" role="status">Pubblicato. Il post è già sul sito.</p>}
+  {ok === 'deleted' && <p class="a-msg a-msg--ok" role="status">Post eliminato.</p>}
+  <p style="margin-top:14px"><a class="a-btn a-btn--wide" href="/admin/diario/nuovo">Scrivi un post</a></p>
+
+  {posts.length === 0
+    ? <p class="a-empty">Non hai ancora scritto niente. Il primo post può essere anche solo una foto con una riga.</p>
+    : (
+      <ul class="a-list" style="margin-top:14px">
+        {posts.map((p) => (
+          <li>
+            <a class="a-row" href={`/admin/diario/${p.id}`}>
+              <div class="a-thumb">{p.image && <img src={p.image} alt="" width="56" height="56" loading="lazy" />}</div>
+              <div>
+                <b>{p.title}</b>
+                <small>{fmtDate(p.published_at, 'it')}</small>
+              </div>
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+</Admin>

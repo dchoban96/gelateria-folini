@@ -1,0 +1,94 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import AiButton from '../../../components/admin/AiButton.astro';
+import Photo from '../../../components/admin/Photo.astro';
+import { getPost, savePost, deletePost } from '../../../lib/db';
+import { saveImage, removeImage } from '../../../lib/media';
+
+const isNew = Astro.params.id === 'nuovo';
+const existing = isNew ? null : await getPost(Number(Astro.params.id));
+if (!isNew && !existing) return Astro.redirect('/admin/diario');
+
+let p = {
+  title: existing?.title ?? '',
+  body: existing?.body ?? '',
+  image: existing?.image ?? '',
+  seo_title: existing?.seo_title ?? '',
+  seo_description: existing?.seo_description ?? '',
+};
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (form.get('action') === 'delete' && existing) {
+    await deletePost(existing.id);
+    await removeImage(existing.image);
+    return Astro.redirect('/admin/diario?ok=deleted');
+  }
+  const text = (k: string, max: number) => String(form.get(k) ?? '').trim().slice(0, max);
+  p = { ...p, title: text('title', 120), body: text('body', 20000), seo_title: text('seo_title', 70), seo_description: text('seo_description', 170) };
+  if (!p.title) error = 'Manca il titolo. Scrivilo e pubblica di nuovo.';
+  if (!error) {
+    const up = await saveImage(form.get('photo'));
+    if (up.error) error = up.error;
+    else {
+      const old = existing?.image ?? '';
+      if (up.path) p.image = up.path;
+      else if (form.get('remove_photo')) p.image = '';
+      await savePost({ id: existing?.id, ...p });
+      if (old && old !== p.image) await removeImage(old);
+      return Astro.redirect('/admin/diario?ok=saved');
+    }
+  }
+}
+const url = `${Astro.url.host}/diario/${existing?.slug ?? '…'}`;
+---
+<Admin title={isNew ? 'Nuovo post' : p.title} tab="diario">
+  <a class="a-back" href="/admin/diario">← Diario</a>
+  <h1>{isNew ? 'Nuovo post' : 'Modifica il post'}</h1>
+  {error && <p class="a-msg a-msg--bad" role="alert">{error}</p>}
+
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="action" value="save" />
+    <div class="a-card">
+      <Photo image={p.image} removable />
+      <div class="a-field">
+        <label class="a-label" for="title">Titolo</label>
+        <input id="title" name="title" type="text" value={p.title} required maxlength="120" />
+      </div>
+      <div class="a-field">
+        <div class="a-label"><label for="body">Testo</label><AiButton kind="post" target="#body" title="#title" text="#body" label="Scrivi con AI" /></div>
+        <textarea class="tall" id="body" name="body" maxlength="20000" placeholder="Scrivi come parli. Oppure butta giù due appunti e tocca “Scrivi con AI”.">{p.body}</textarea>
+        <small>Una riga vuota fa cominciare un nuovo paragrafo.</small>
+      </div>
+    </div>
+
+    <details class="a-more" open={!!(p.seo_title || p.seo_description)}>
+      <summary>Come appare su Google <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+      <div>
+        <p class="a-help" style="margin-top:0">Facoltativo. Se lasci vuoto, Google usa il titolo e l’inizio del testo.</p>
+        <div class="a-field">
+          <div class="a-label"><label for="seo_title">Meta title <span class="a-count" data-count-for="seo_title" data-max="60"></span></label><AiButton kind="seo_title" target="#seo_title" title="#title" text="#body" /></div>
+          <input id="seo_title" name="seo_title" type="text" value={p.seo_title} maxlength="70" />
+        </div>
+        <div class="a-field">
+          <div class="a-label"><label for="seo_description">Meta description <span class="a-count" data-count-for="seo_description" data-max="155"></span></label><AiButton kind="seo_description" target="#seo_description" title="#title" text="#body" /></div>
+          <textarea id="seo_description" name="seo_description" maxlength="170" style="min-height:96px">{p.seo_description}</textarea>
+        </div>
+        <div class="a-serp" aria-label="Anteprima su Google">
+          <p class="a-serp__url">{url}</p>
+          <p class="a-serp__title" data-mirror="seo_title" data-fallback={p.title ? `${p.title}. Il diario di Max` : 'Titolo del post'}></p>
+          <p class="a-serp__desc" data-mirror="seo_description" data-fallback={p.body.slice(0, 155) || 'Le prime righe del testo.'}></p>
+        </div>
+      </div>
+    </details>
+    <div class="a-save"><div><button class="a-btn a-btn--wide" type="submit">{isNew ? 'Pubblica' : 'Salva'}</button></div></div>
+  </form>
+
+  {existing && (
+    <form class="a-danger" method="post" data-confirm={`Eliminare il post “${existing.title}”? Non si può annullare.`}>
+      <input type="hidden" name="action" value="delete" />
+      <button class="a-btn a-btn--bad" type="submit">Elimina il post</button>
+    </form>
+  )}
+</Admin>

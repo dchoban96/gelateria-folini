@@ -1,0 +1,15 @@
+---
+// A scoop on a cone, drawn in the bold outline of old-school tattoo flash (Max's arms are covered in it).
+interface Props { color?: string; cone?: boolean }
+const { color = '#f0b866', cone = true } = Astro.props;
+---
+<svg viewBox="0 0 200 250" aria-hidden="true" fill="none" stroke="#421b03" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
+  {cone && (
+    <g>
+      <path d="M56 138 L100 238 L144 138 Z" fill="#e3a95c" />
+      <path d="M72 150 L112 208 M96 144 L124 182 M128 150 L88 208 M104 144 L76 182" stroke-width="4" />
+    </g>
+  )}
+  <path d="M40 118 C28 58 78 26 104 28 C150 30 174 78 160 118 C170 124 166 140 153 137 C146 148 133 133 125 139 C116 149 104 134 94 139 C84 147 72 134 62 139 C50 143 32 134 40 118 Z" fill={color} />
+  <path d="M66 82 C72 62 88 52 102 50" stroke="#fbf8f1" stroke-width="7" />
+</svg>

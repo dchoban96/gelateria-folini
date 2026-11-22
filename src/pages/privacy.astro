@@ -1,0 +1,20 @@
+---
+import Base from '../layouts/Base.astro';
+import { SITE } from '../lib/site';
+---
+<Base title="Privacy e cookie. Gelateria Folini" description="Come Gelateria Folini tratta i dati di chi visita il sito: nessun cookie di profilazione, nessuna statistica di terze parti." page="privacy">
+  <section class="page">
+    <h1 class="head">privacy e cookie</h1>
+    <div class="prose">
+      <p>Questo sito serve a mostrare i gusti, gli orari e i contatti di {SITE.name}, {SITE.street}, {SITE.city}. Titolare del trattamento: {SITE.name}, {SITE.vat}.</p>
+      <h2>Che dati raccogliamo</h2>
+      <p>Nessuno, se ti limiti a visitare le pagine. Il sito non ha moduli di contatto, non usa statistiche di terze parti e non carica caratteri o mappe da servizi esterni.</p>
+      <h2>Cookie</h2>
+      <p>Il sito non usa cookie di profilazione né di tracciamento. L’unico cookie esistente è tecnico e riguarda solo chi gestisce il sito: serve a tenere aperta la sessione dell’area riservata.</p>
+      <h2>Link esterni</h2>
+      <p>I pulsanti per WhatsApp, Instagram e Google Maps aprono servizi esterni, che trattano i tuoi dati secondo le loro regole. Se ci scrivi su WhatsApp usiamo il tuo numero solo per risponderti.</p>
+      <h2>I tuoi diritti</h2>
+      <p>Per qualsiasi richiesta sui tuoi dati puoi chiamarci al {SITE.phone} o passare in gelateria.</p>
+    </div>
+  </section>
+</Base>

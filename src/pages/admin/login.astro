@@ -1,0 +1,30 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import { COOKIE, checkPassword, makeSession } from '../../lib/auth';
+
+if (Astro.locals.admin) return Astro.redirect('/admin');
+let error = '';
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (await checkPassword(String(form.get('password') ?? ''))) {
+    const s = await makeSession();
+    Astro.cookies.set(COOKIE, s.value, { path: '/admin', httpOnly: true, sameSite: 'strict', secure: Astro.url.protocol === 'https:', maxAge: s.maxAge });
+    return Astro.redirect('/admin');
+  }
+  await new Promise((r) => setTimeout(r, 800)); // slows down guessing
+  error = 'Password sbagliata. Riprova, controllando maiuscole e trattini.';
+}
+---
+<Admin title="Entra" bare>
+  <h1>Ciao Max</h1>
+  <p class="a-help">Da qui aggiorni i gusti, il diario e gli orari del sito.</p>
+  {error && <p class="a-msg a-msg--bad" role="alert">{error}</p>}
+  <form method="post" style="margin-top:22px">
+    <div class="a-field">
+      <label class="a-label" for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required autofocus />
+    </div>
+    <p style="margin-top:18px"><button class="a-btn a-btn--wide" type="submit">Entra</button></p>
+  </form>
+  <p style="margin-top:20px"><a class="a-back" href="/">Torna al sito</a></p>
+</Admin>

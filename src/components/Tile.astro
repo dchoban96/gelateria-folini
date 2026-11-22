@@ -1,0 +1,13 @@
+---
+import Scoop from './Scoop.astro';
+import type { Flavor } from '../lib/db';
+interface Props { flavor: Pick<Flavor, 'name' | 'image' | 'color'>; class?: string; eager?: boolean; cone?: boolean }
+const { flavor, class: cls = '', eager = false, cone = true } = Astro.props;
+// tiles without a photo get a paler field of the flavour's own colour and a drawn scoop
+const tile = flavor.image ? flavor.color : `color-mix(in oklab, ${flavor.color} 38%, #fbf8f1)`;
+---
+<div class={`tile ${cls}`} style={`--tile:${tile}`}>
+  {flavor.image
+    ? <img src={flavor.image} alt={flavor.name} width="600" height="750" loading={eager ? 'eager' : 'lazy'} decoding="async" />
+    : <Scoop color={flavor.color} cone={cone} />}
+</div>

@@ -1,0 +1,163 @@
+---
+import '../styles/admin.css';
+interface Props { title: string; tab?: 'oggi' | 'menu' | 'diario' | 'orari' | 'seo'; bare?: boolean }
+const { title, tab, bare = false } = Astro.props;
+const tabs = [
+  ['oggi', 'Oggi', '/admin', '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.900 4.900l1.400 1.400M17.700 17.700l1.400 1.400M4.900 19.100l1.400-1.400M17.700 6.300l1.400-1.400"/>'],
+  ['menu', 'Menu', '/admin/menu', '<path d="M7 11a5 5 0 0 1 10 0c1 .3 1 2-.3 2-1 1.200-2-.400-3 .200-1 1-2-.400-3.200.100-1.200.900-2.300-.500-3.500.100C6 13 6 11.300 7 11z"/><path d="M8.500 14.500 12 22l3.500-7.500"/>'],
+  ['diario', 'Diario', '/admin/diario', '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.500 6.500 4 4"/>'],
+  ['orari', 'Orari', '/admin/orari', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
+  ['seo', 'Google', '/admin/seo', '<circle cx="11" cy="11" r="7"/><path d="m16.500 16.500 4.500 4.500"/>'],
+] as const;
+---
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#421b03" />
+    <title>{title} · Gelateria Folini</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    {bare
+      ? <main class="a-login"><slot /></main>
+      : (
+        <>
+          <header class="a-top">
+            <b>Gelateria Folini</b>
+            <div class="a-top__links">
+              <a href="/" target="_blank" rel="noopener">Vedi il sito</a>
+              <form method="post" action="/admin/logout"><button type="submit">Esci</button></form>
+            </div>
+          </header>
+          <main class="a-main"><slot /></main>
+          <nav class="a-nav" aria-label="Sezioni">
+            {tabs.map(([id, label, href, icon]) => (
+              <a href={href} aria-current={tab === id ? 'page' : undefined}>
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" set:html={icon} />
+                {label}
+              </a>
+            ))}
+          </nav>
+        </>
+      )}
+    <script>
+      const $ = <T extends Element>(root: ParentNode, sel?: string | null) => (sel ? root.querySelector<T>(sel) : null);
+
+      // Photos from a phone are huge: shrink them in the browser before upload, and show a preview.
+      document.querySelectorAll<HTMLInputElement>('input[type=file][data-resize]').forEach((input) => {
+        input.addEventListener('change', async () => {
+          const file = input.files?.[0];
+          if (!file || !file.type.startsWith('image/')) return;
+          const img = input.closest('.a-photo')?.querySelector<HTMLImageElement>('img');
+          let blob: Blob = file;
+          try {
+            const bmp = await createImageBitmap(file);
+            const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(bmp.width * scale);
+            canvas.height = Math.round(bmp.height * scale);
+            canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+            const small = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', 0.85));
+            if (small) {
+              blob = small;
+              const dt = new DataTransfer();
+              dt.items.add(new File([small], 'foto.jpg', { type: 'image/jpeg' }));
+              input.files = dt.files;
+            }
+          } catch {
+            /* keep the original file; the server checks type and size */
+          }
+          if (img) { img.src = URL.createObjectURL(blob); img.hidden = false; }
+        });
+      });
+
+      // Deleting asks once, naming what will be deleted.
+      document.querySelectorAll<HTMLFormElement>('form[data-confirm]').forEach((form) =>
+        form.addEventListener('submit', (e) => {
+          if (!confirm(form.dataset.confirm)) e.preventDefault();
+        }),
+      );
+
+      // Character counters and the Google preview follow the fields as you type.
+      const refresh = (field: HTMLInputElement | HTMLTextAreaElement) => {
+        const counter = document.querySelector<HTMLElement>(`[data-count-for="${field.id}"]`);
+        if (counter) {
+          const max = Number(counter.dataset.max);
+          counter.textContent = `${field.value.length}/${max}`;
+          counter.toggleAttribute('data-over', field.value.length > max);
+        }
+        const out = document.querySelector<HTMLElement>(`[data-mirror="${field.id}"]`);
+        if (out) out.textContent = field.value.trim() || out.dataset.fallback || '';
+      };
+      document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input[id], textarea[id]').forEach((field) => {
+        refresh(field);
+        field.addEventListener('input', () => refresh(field));
+      });
+
+      // "Genera con AI": sends the title (and any notes already written) and fills the field with the result.
+      document.querySelectorAll<HTMLButtonElement>('button[data-ai]').forEach((btn) => {
+        const label = btn.querySelector('span')!;
+        const idle = label.textContent ?? '';
+        btn.addEventListener('click', async () => {
+          const form = btn.closest('form')!;
+          const target = $<HTMLInputElement | HTMLTextAreaElement>(form, btn.dataset.target);
+          if (!target || btn.getAttribute('aria-busy') === 'true') return;
+          let note = target.closest('.a-field')?.querySelector<HTMLElement>('.a-ai__note');
+          if (!note) {
+            note = document.createElement('p');
+            note.className = 'a-ai__note';
+            note.setAttribute('role', 'status');
+            target.after(note);
+          }
+          const value = (sel?: string) => $<HTMLInputElement | HTMLTextAreaElement>(form, sel)?.value ?? '';
+          const before = target.value;
+          btn.setAttribute('aria-busy', 'true');
+          label.textContent = 'Sto scrivendo…';
+          note.removeAttribute('data-bad');
+          note.textContent = '';
+          try {
+            const res = await fetch('/admin/ai', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                kind: btn.dataset.ai,
+                title: value(btn.dataset.title),
+                text: value(btn.dataset.text),
+                category: form.querySelector<HTMLInputElement>('[name=category]:checked')?.value ?? '',
+                page: btn.dataset.page ?? '',
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.text) throw new Error(data.error || 'Qualcosa è andato storto. Riprova.');
+            target.value = data.text;
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+            target.classList.remove('a-filling');
+            void target.offsetWidth;
+            target.classList.add('a-filling');
+            note.textContent = 'Scritto dall’AI: rileggi e correggi prima di salvare. ';
+            if (before.trim()) {
+              const undo = document.createElement('button');
+              undo.type = 'button';
+              undo.textContent = 'Rimetti il testo di prima';
+              undo.addEventListener('click', () => {
+                target.value = before;
+                target.dispatchEvent(new Event('input', { bubbles: true }));
+                note!.textContent = '';
+              });
+              note.append(undo);
+            }
+          } catch (e) {
+            note.setAttribute('data-bad', '');
+            note.textContent = e instanceof Error ? e.message : 'Qualcosa è andato storto. Riprova.';
+          } finally {
+            btn.removeAttribute('aria-busy');
+            label.textContent = idle;
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

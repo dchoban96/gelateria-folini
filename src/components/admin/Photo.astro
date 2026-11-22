@@ -1,0 +1,17 @@
+---
+// Photo picker: the whole tile opens the camera roll; the current or chosen photo fills it.
+interface Props { image?: string; removable?: boolean }
+const { image = '', removable = false } = Astro.props;
+---
+<div class="a-field">
+  <span class="a-label">Foto</span>
+  <label class="a-photo">
+    <img src={image || undefined} alt="" hidden={!image} />
+    <span class="a-photo__hint">
+      {!image && <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.500"/></svg>}
+      {image ? 'Cambia foto' : 'Tocca per scegliere una foto'}
+    </span>
+    <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" data-resize aria-label="Scegli una foto" />
+  </label>
+  {removable && image && <label class="a-toggle" style="margin-top:6px">Togli la foto attuale <input type="checkbox" name="remove_photo" /></label>}
+</div>

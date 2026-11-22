@@ -1,0 +1,36 @@
+---
+// Allergen icons for one product. Clicking them opens a small window that names what the product contains.
+import { findAllergens } from '../lib/allergens';
+import type { Lang } from '../lib/i18n';
+interface Props { text: string; id: string | number; name: string; lang?: Lang }
+const { text, id, name, lang = 'it' } = Astro.props;
+const found = findAllergens(text);
+const names = found.map((a) => a[lang]);
+const list = new Intl.ListFormat(lang === 'it' ? 'it' : 'en', { style: 'long', type: 'conjunction' }).format(names);
+const pop = `alg-${id}`;
+const t =
+  lang === 'it'
+    ? { label: `Allergeni di ${name}: ${list}. Apri i dettagli`, contains: 'Questo prodotto contiene', note: 'Per allergie e intolleranze chiedi sempre al banco.', close: 'Chiudi', plain: 'Allergeni:' }
+    : { label: `Allergens in ${name}: ${list}. Open details`, contains: 'This product contains', note: 'For allergies and intolerances always ask at the counter.', close: 'Close', plain: 'Allergens:' };
+---
+{found.length === 0
+  ? <p class="item__note">{t.plain} {text}</p>
+  : (
+    <>
+      <button class="alg" type="button" popovertarget={pop} aria-label={t.label}>
+        {found.map((a) => (
+          <span class="alg__i" style={`--c:${a.color}`}><svg viewBox="0 0 24 24" aria-hidden="true" fill="#fff" set:html={a.svg} /></span>
+        ))}
+      </button>
+      <div class="alg-pop" id={pop} popover>
+        <p class="alg-pop__title">{t.contains} {list}.</p>
+        <ul>
+          {found.map((a) => (
+            <li><span class="alg__i" style={`--c:${a.color}`}><svg viewBox="0 0 24 24" aria-hidden="true" fill="#fff" set:html={a.svg} /></span>{a[lang]}</li>
+          ))}
+        </ul>
+        <p class="small muted">{t.note}</p>
+        <button class="btn btn--ink" type="button" popovertarget={pop} popovertargetaction="hide">{t.close}</button>
+      </div>
+    </>
+  )}

@@ -1,0 +1,36 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { listFlavors, CATEGORIES } from '../../../lib/db';
+import { ui } from '../../../lib/i18n';
+
+const flavors = await listFlavors({ all: true });
+const groups = CATEGORIES.map((c) => ({ label: ui.it.cats[c], items: flavors.filter((f) => f.category === c) })).filter((g) => g.items.length);
+const ok = Astro.url.searchParams.get('ok');
+---
+<Admin title="Menu" tab="menu">
+  <h1>Menu</h1>
+  {ok === 'saved' && <p class="a-msg a-msg--ok" role="status">Salvato. La modifica è già sul sito.</p>}
+  {ok === 'deleted' && <p class="a-msg a-msg--ok" role="status">Eliminato dal menu.</p>}
+  <p style="margin-top:14px"><a class="a-btn a-btn--wide" href="/admin/menu/nuovo">Aggiungi al menu</a></p>
+
+  {groups.length === 0 && <p class="a-empty">Il menu è vuoto. Aggiungi il primo gusto con il pulsante qui sopra.</p>}
+  {groups.map((g) => (
+    <section>
+      <h2>{g.label}</h2>
+      <ul class="a-list">
+        {g.items.map((f) => (
+          <li>
+            <a class="a-row" href={`/admin/menu/${f.id}`}>
+              <div class="a-thumb" style={`--c:${f.color}`}>{f.image && <img src={f.image} alt="" width="56" height="56" loading="lazy" />}</div>
+              <div>
+                <b>{f.name}</b>
+                <small>{f.visible ? 'sul sito' : 'nascosto'}{f.price && ` · ${f.price}`}</small>
+              </div>
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</Admin>

@@ -1,0 +1,85 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import { getSettings, saveSettings } from '../../lib/db';
+import { ui } from '../../lib/i18n';
+
+const months = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+let s = await getSettings();
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const pad = (v: FormDataEntryValue | null, max: number) => String(Math.min(max, Math.max(1, Number(v) || 1))).padStart(2, '0');
+  const time = (v: FormDataEntryValue | null, fallback: string) => (/^\d{2}:\d{2}$/.test(String(v)) ? String(v) : fallback);
+  const next = {
+    ...s,
+    seasonOpen: `${pad(form.get('open_m'), 12)}-${pad(form.get('open_d'), 31)}`,
+    seasonClose: `${pad(form.get('close_m'), 12)}-${pad(form.get('close_d'), 31)}`,
+    notice: String(form.get('notice') ?? '').trim().slice(0, 160),
+    hours: s.hours.map((h, i) => ({
+      open: time(form.get(`open_${i}`), h.open),
+      close: time(form.get(`close_${i}`), h.close),
+      closed: !!form.get(`closed_${i}`),
+    })),
+  };
+  const bad = next.hours.findIndex((h) => !h.closed && h.close <= h.open);
+  if (bad >= 0) {
+    error = `${ui.it.days[bad]}: l’orario di chiusura deve venire dopo quello di apertura.`;
+    s = next;
+  } else {
+    await saveSettings(next);
+    return Astro.redirect('/admin/orari?ok=1');
+  }
+}
+const [om, od] = s.seasonOpen.split('-').map(Number);
+const [cm, cd] = s.seasonClose.split('-').map(Number);
+const days = Array.from({ length: 31 }, (_, i) => i + 1);
+---
+<Admin title="Orari" tab="orari">
+  <h1>Orari</h1>
+  {Astro.url.searchParams.get('ok') && <p class="a-msg a-msg--ok" role="status">Orari salvati. Il sito è già aggiornato.</p>}
+  {error && <p class="a-msg a-msg--bad" role="alert">{error}</p>}
+
+  <form method="post">
+    <h2>Stagione</h2>
+    <div class="a-card">
+      <fieldset class="a-field">
+        <legend class="a-label">Aprite il</legend>
+        <div class="a-two">
+          <select name="open_d" aria-label="Giorno di apertura">{days.map((d) => <option value={d} selected={d === od}>{d}</option>)}</select>
+          <select name="open_m" aria-label="Mese di apertura">{months.map((m, i) => <option value={i + 1} selected={i + 1 === om}>{m}</option>)}</select>
+        </div>
+      </fieldset>
+      <fieldset class="a-field">
+        <legend class="a-label">Chiudete il</legend>
+        <div class="a-two">
+          <select name="close_d" aria-label="Giorno di chiusura">{days.map((d) => <option value={d} selected={d === cd}>{d}</option>)}</select>
+          <select name="close_m" aria-label="Mese di chiusura">{months.map((m, i) => <option value={i + 1} selected={i + 1 === cm}>{m}</option>)}</select>
+        </div>
+        <small>Fuori da queste date il sito dice che siete chiusi e conta i giorni alla riapertura.</small>
+      </fieldset>
+    </div>
+
+    <h2>Settimana</h2>
+    {s.hours.map((h, i) => (
+      <fieldset class="a-card a-day">
+        <label class="a-toggle" style="min-height:36px"><b>{ui.it.days[i]}</b> <span style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:0.9375rem">chiuso <input type="checkbox" name={`closed_${i}`} checked={h.closed} aria-label={`${ui.it.days[i]}: giorno di chiusura`} /></span></label>
+        <div class="a-times">
+          <input type="time" name={`open_${i}`} value={h.open} aria-label={`${ui.it.days[i]}, apertura`} />
+          <span>–</span>
+          <input type="time" name={`close_${i}`} value={h.close} aria-label={`${ui.it.days[i]}, chiusura`} />
+        </div>
+      </fieldset>
+    ))}
+
+    <h2>Avviso</h2>
+    <div class="a-card">
+      <div class="a-field">
+        <label class="a-label" for="notice">Una riga in prima pagina</label>
+        <input id="notice" name="notice" type="text" value={s.notice} maxlength="160" placeholder="Domenica chiudiamo alle 19 per la festa in piazza" />
+        <small>Facoltativo. Per toglierlo, cancella il testo e salva.</small>
+      </div>
+    </div>
+    <div class="a-save"><div><button class="a-btn a-btn--wide" type="submit">Salva orari</button></div></div>
+  </form>
+</Admin>

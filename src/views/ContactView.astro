@@ -1,0 +1,68 @@
+---
+import Base from '../layouts/Base.astro';
+import Arrow from '../components/Arrow.astro';
+import { getSettings } from '../lib/db';
+import { getStatus } from '../lib/season';
+import { ui, statusText, fmtMd, type Lang } from '../lib/i18n';
+import { SITE, whatsapp } from '../lib/site';
+
+interface Props { lang?: Lang }
+const { lang = 'it' } = Astro.props;
+const t = ui[lang];
+const c = t.contact;
+const settings = await getSettings();
+const status = getStatus(settings);
+const st = statusText(status, lang);
+---
+<Base title={(lang === 'it' && settings.seo.contact.title) || c.title} description={(lang === 'it' && settings.seo.contact.description) || c.desc} lang={lang} page="contact" image="/img/noci-miele.webp">
+  <section class="coupon-wrap">
+    <div class="coupon">
+      <div class="coupon__left">
+        <h1 class="display" data-reveal>{c.h1}</h1>
+        <p data-reveal style="--i:1">{c.lead}</p>
+      </div>
+      <div class="coupon__right" data-reveal style="--i:2">
+        <a class="coupon__row" href={SITE.maps} rel="noopener"><span>{c.address}</span><b>{SITE.street}<br />{SITE.city}</b></a>
+        <a class="coupon__row" href={SITE.phoneHref}><span>{c.phone}</span><b>{SITE.phone}</b></a>
+        <a class="coupon__row" href={SITE.instagram} rel="noopener"><span>{c.insta}</span><b>{SITE.instagramHandle}</b></a>
+        <a class="coupon__row" href={SITE.maps} rel="noopener"><span>Google Maps</span><b>{c.maps}</b></a>
+        <a class="coupon__go" href={whatsapp(t.waHello)} rel="noopener">{c.wa} <Arrow /></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="h-hours">
+    <div class="hours">
+      <div>
+        <h2 class="head" id="h-hours" data-reveal>{c.hoursH}</h2>
+        <p class="lead" style="margin-top:24px;max-width:24ch;--i:1" data-reveal><strong>{st.title}</strong> {st.line}</p>
+        <p class="muted" style="margin-top:16px;max-width:40ch" data-reveal>{c.season(fmtMd(settings.seasonOpen, lang), fmtMd(settings.seasonClose, lang))}</p>
+        {settings.notice && <p style="margin-top:16px;max-width:40ch"><b>{settings.notice}</b></p>}
+      </div>
+      <table data-reveal style="--i:1">
+        <caption class="vh">{c.hoursH}</caption>
+        <tbody>
+          {settings.hours.map((h, i) => (
+            <tr data-today={status.inSeason && status.dow === i ? '' : undefined}>
+              <th scope="row">{t.days[i]}</th>
+              <td>{h.closed ? c.closed : `${h.open} – ${h.close}`}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="strip" tabindex="0" role="group" aria-label={lang === 'it' ? 'Foto dal banco' : 'Photos from the counter'}>
+    {[
+      ['/img/max.webp', lang === 'it' ? 'Max dietro il banco' : 'Max behind the counter'],
+      ['/img/dragon-fruit.webp', lang === 'it' ? 'Sorbetto al dragon fruit' : 'Dragon fruit sorbet'],
+      ['/img/torta-lamponi.webp', lang === 'it' ? 'Torta gelato ai lamponi' : 'Raspberry gelato cake'],
+      ['/img/dulce-de-leche.webp', lang === 'it' ? 'Gelato al dulce de leche' : 'Dulce de leche gelato'],
+      ['/img/noci-miele.webp', lang === 'it' ? 'Gelato noci e miele' : 'Walnut and honey gelato'],
+      ['/img/torta-pistacchio.webp', lang === 'it' ? 'Torte gelato al pistacchio' : 'Pistachio gelato cakes'],
+    ].map(([src, alt], i) => (
+      <div class="tile" style={`--tile:var(--f-orange);--i:${i}`} data-reveal><img src={src} alt={alt} width="600" height="750" loading="lazy" /></div>
+    ))}
+  </div>
+</Base>

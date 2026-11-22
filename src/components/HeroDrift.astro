@@ -1,0 +1,33 @@
+---
+// Hero variation A, "drifting counter": columns of flavour tiles slide slowly in opposite directions.
+import Tile from './Tile.astro';
+import type { Flavor } from '../lib/db';
+import { paths, type Lang } from '../lib/i18n';
+interface Props { flavors: Flavor[]; lang?: Lang }
+const { flavors, lang = 'it' } = Astro.props;
+// photos first so every column gets some, then the drawn scoops
+const ordered = [...flavors.filter((f) => f.image), ...flavors.filter((f) => !f.image)];
+const cols: Flavor[][] = [[], [], []];
+ordered.forEach((f, i) => cols[i % 3].push(f));
+---
+<div class="hero__field hero__field--drift">
+  <div class="driftcols">
+    {cols.map((col, c) => (
+      <div class={`driftcol driftcol--${c}`}>
+        <ul class="drifttrack">
+          {/* the list is printed twice so the loop has no seam; the copy is hidden from assistive tech */}
+          {[0, 1].map((copy) =>
+            col.map((f) => (
+              <li aria-hidden={copy ? 'true' : undefined}>
+                <a href={`${paths[lang].menu}#g-${f.id}`} tabindex={copy ? -1 : undefined}>
+                  <Tile flavor={f} eager />
+                  <span class="driftname">{f.name}</span>
+                </a>
+              </li>
+            )),
+          )}
+        </ul>
+      </div>
+    ))}
+  </div>
+</div>

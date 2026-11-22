@@ -1,0 +1,151 @@
+---
+import Base from '../layouts/Base.astro';
+import Tile from '../components/Tile.astro';
+import Scoop from '../components/Scoop.astro';
+import HeroDrift from '../components/HeroDrift.astro';
+import Glasses from '../components/Glasses.astro';
+import Arrow from '../components/Arrow.astro';
+import { listFlavors, listPosts, getSettings } from '../lib/db';
+import { getStatus } from '../lib/season';
+import { ui, paths, statusText, flavorFact, fmtDate, type Lang } from '../lib/i18n';
+import { SITE, whatsapp } from '../lib/site';
+
+interface Props { lang?: Lang }
+const { lang = 'it' } = Astro.props;
+const t = ui[lang];
+const h = t.home;
+const p = paths[lang];
+
+const [flavors, posts, settings] = await Promise.all([listFlavors(), listPosts(3), getSettings()]);
+const status = getStatus(settings);
+const st = statusText(status, lang);
+const winter = status.state === 'winter';
+
+const scoops = flavors.filter((f) => f.category === 'gelato' || f.category === 'sorbetto');
+const counter = (winter ? scoops : scoops.filter((f) => f.today)).slice(0, 9);
+const cakes = flavors.filter((f) => f.category === 'torta').slice(0, 2);
+const fields = ['var(--f-pistachio)', 'var(--f-orange)'];
+const excerpt = (s: string) => (s.length > 150 ? s.slice(0, s.lastIndexOf(' ', 150)) + '…' : s);
+---
+<Base title={(lang === 'it' && settings.seo.home.title) || h.title} description={(lang === 'it' && settings.seo.home.description) || h.desc} lang={lang} page="home">
+  <section class="hero">
+    <div class="hero__text">
+      <div>
+        <h1 class="display" data-reveal>{h.h1}</h1>
+      </div>
+      <div class="hero__foot">
+        <p class="lead" data-reveal style="--i:1">{h.lead}</p>
+        <p class="hero__status" data-reveal style="--i:2" aria-live="polite">
+          <strong>{st.title}</strong>
+          {st.line}
+          {settings.notice && <span><br />{settings.notice}</span>}
+        </p>
+        <a class="btn" href={p.menu} data-reveal style="--i:3">{h.cta} <Arrow /></a>
+      </div>
+    </div>
+    <HeroDrift flavors={flavors} lang={lang} />
+  </section>
+
+  {counter.length > 0 && (
+    <section class="section" aria-labelledby="h-counter">
+      <div class="section__top">
+        <h2 class="head" id="h-counter" data-reveal>{winter ? h.winterGrid : h.today}</h2>
+        <a class="link" href={p.menu} data-reveal style="--i:1">{h.all}</a>
+      </div>
+      <ul class="catalogue">
+        {counter.map((f, i) => (
+          <li class={`catalogue__item ${i === 0 ? 'big' : ''}`} data-reveal style={`--i:${i % 4}`}>
+            <a href={`${p.menu}#g-${f.id}`}>
+              <Tile flavor={f} />
+              <span class="catalogue__name">{f.name}</span>
+              <span class="catalogue__fact">{flavorFact(f, lang)}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  <section class="section" aria-labelledby="h-max">
+    <div class="section__top">
+      <h2 class="head" id="h-max" data-reveal>{h.aboutH}</h2>
+    </div>
+    <ul class="about__tiles">
+      <li data-reveal>
+        <div class="tile" style="--tile:var(--f-orange)"><img src="/img/max.webp" alt={lang === 'it' ? 'Max, il gelatiere, con i capelli bianchi e gli occhiali neri' : 'Max, the gelato maker, with white hair and black glasses'} width="520" height="580" loading="lazy" /></div>
+        <span class="catalogue__name">{h.tiles[0][0]}</span><span class="catalogue__fact">{h.tiles[0][1]}</span>
+      </li>
+      <li data-reveal style="--i:1">
+        <div class="tile" style="--tile:var(--f-caramel)"><Glasses /></div>
+        <span class="catalogue__name">{h.tiles[1][0]}</span><span class="catalogue__fact">{h.tiles[1][1]}</span>
+      </li>
+      <li data-reveal style="--i:2">
+        <div class="tile" style="--tile:var(--f-dragon)"><Scoop color="#fbf8f1" /></div>
+        <span class="catalogue__name">{h.tiles[2][0]}</span><span class="catalogue__fact">{h.tiles[2][1]}</span>
+      </li>
+      <li data-reveal style="--i:3">
+        <div class="tile"><img src="/img/torta-pistacchio.webp" alt={lang === 'it' ? 'Tre torte gelato al pistacchio su un piano d’acciaio' : 'Three pistachio gelato cakes on a steel counter'} width="600" height="750" loading="lazy" /></div>
+        <span class="catalogue__name">{h.tiles[3][0]}</span><span class="catalogue__fact">{h.tiles[3][1]}</span>
+      </li>
+    </ul>
+    <div class="about__text">
+      <p class="lead" data-reveal>{h.aboutLead}</p>
+      <div class="prose" data-reveal style="--i:1">
+        {h.about.map((par) => <p>{par}</p>)}
+      </div>
+    </div>
+  </section>
+
+  {cakes.length === 2 && (
+    <section class="showcase" aria-labelledby="h-cakes">
+      {cakes.map((c, i) => (
+        <article class="panel" style={`--field:${fields[i]}`}>
+          <div class="panel__img"><img src={c.image} alt={c.name} width="900" height="900" loading="lazy" /></div>
+          {i === 0 ? <h2 class="head" id="h-cakes" data-reveal>{h.cakesH}</h2> : <span />}
+          <div class="panel__row" data-reveal style="--i:1">
+            <p class="panel__name">{c.name}<br /><span class="small" style="font-weight:500">{c.price}</span></p>
+            <div class="panel__actions">
+              <a class="btn btn--ink" href={whatsapp(t.waCake(c.name))} rel="noopener">{h.order}</a>
+              <a class="btn btn--paper" href={`${p.menu}#torta`}>{h.allCakes}</a>
+            </div>
+          </div>
+        </article>
+      ))}
+    </section>
+  )}
+
+  <section class="band">
+    <p data-reveal>{h.proof}</p>
+    <a class="btn btn--ink" href={SITE.reviews} rel="noopener" data-reveal style="--i:1">{h.proofLink} <Arrow /></a>
+  </section>
+
+  {posts.length > 0 && (
+    <section class="section" aria-labelledby="h-diary">
+      <div class="section__top">
+        <h2 class="head" id="h-diary" data-reveal>{h.diaryH}</h2>
+        <a class="link" href={paths.it.diary} data-reveal style="--i:1">{h.diaryAll}</a>
+      </div>
+      <div class="diary">
+        <a class="diary__lead" href={`/diario/${posts[0].slug}`} data-reveal>
+          {posts[0].image && <div class="tile"><img src={posts[0].image} alt="" width="900" height="675" loading="lazy" /></div>}
+          <h3 class="post-title">{posts[0].title}</h3>
+          <p class="small muted">{fmtDate(posts[0].published_at, lang)}</p>
+        </a>
+        <ul class="diary__list">
+          {posts.slice(1).map((post, i) => (
+            <li data-reveal style={`--i:${i + 1}`}>
+              <a href={`/diario/${post.slug}`}>
+                <div class="tile" style="--tile:var(--f-caramel)">{post.image ? <img src={post.image} alt="" width="176" height="176" loading="lazy" /> : <Scoop cone={false} />}</div>
+                <div>
+                  <h3 class="post-title">{post.title}</h3>
+                  <p class="muted">{excerpt(post.body.split('\n')[0])}</p>
+                  <p class="small muted">{fmtDate(post.published_at, lang)}</p>
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )}
+</Base>
